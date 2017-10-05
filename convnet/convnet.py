@@ -41,7 +41,10 @@ class ConvLayer():
                     for k_d in range(0, self.depth):
                         for k_i in range(0, self.l):
                             for k_j in range(0, self.l):
-                                if (i + k_i) >= 0 and (i + k_i) < X.shape[1] and (j + k_j) >= 0 and (j + k_j) < X.shape[2]:
+                                if ((i + k_i) >= 0 and
+                                    (i + k_i) < X.shape[1] and
+                                    (j + k_j) >= 0 and
+                                    (j + k_j) < X.shape[2]):
                                     z[k][int((i)/self.stride)][int(j/self.stride)] += self.filters[k][k_d][k_i][k_j] * X[k_d][i + k_i][j + k_j]
                                 # many errors there
                     z[k][i][j] += self.biases[k]
