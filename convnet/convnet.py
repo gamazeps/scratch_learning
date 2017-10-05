@@ -17,34 +17,109 @@ that is:
 """
 import numpy as np
 
-conv1_k = 16
-conv1_l = 5
-conv2_k = 16
-conv2_l = 5
-n_classes = 10
-input_w = 28
+class ConvLayer():
+    def __init__(self, k, l, depth, stride, padding):
+        self.k = k
+        self.l = l
+        self.depth = depth
+        self.stride = stride
+        self.padding = padding
+        self.filters = np.random.randn(k, depth, l, l)
+        self.biases = np.zeros((k, 1))
 
-def init_params():
-    """
-    Conv size is hardcoded and this sis bad
-    """
-    params = dict()
-    params["conv1_W"] = np.random((conv1_k, conv1_l, conv1_l)) * 0.01
-    params["conv1_b"] = np.zeros((conv1_k, 1))
-    params["conv2_W"] = np.random((conv2_k, conv2_l, conv2_l)) * 0.01
-    params["conv2_b"] = np.zeros((conv2_k, 1)) 
-    fc_size = ((input_w / 4) ^ 2) * conv2_k # flatten data after max pooling.
-    params["W1"] = np.random((fc_size, fc_size)) * 0.01
-    params["b1"] = np.zero((fc_size, 1))
-    params["W2"] = np.random((n_classes, fc_size)) * 0.01
-    params["b2"] = np.zero((n_classes, 1))
-    return params
+    def forward(self, X):
+        assert(X.shape[0] == self.depth) # make sure that we have the proper input depth.
+        assert(X.shape[1] == X.shape[2]) # make sure that the image is a square.
+        out = int((X.shape[1] + 2*self.padding - self.l) / self.stride) + 1
+        z = np.zeros((self.k, out, out))
 
-def forward(params, X):
-    pass
-    
+        print(X.shape)
+        print(z.shape)
+        for k in range(0, self.k):
+            for i in range(-self.padding, X.shape[1] + self.padding - self.l + 1, self.stride):
+                for j in range(-self.padding, X.shape[2] + self.padding - self.l + 1, self.stride):
+                    for k_d in range(0, self.depth):
+                        for k_i in range(0, self.l):
+                            for k_j in range(0, self.l):
+                                if (i + k_i) >= 0 and (i + k_i) < X.shape[1] and (j + k_j) >= 0 and (j + k_j) < X.shape[2]:
+                                    z[k][int((i)/self.stride)][int(j/self.stride)] += self.filters[k][k_d][k_i][k_j] * X[k_d][i + k_i][j + k_j]
+                                # many errors there
+                    z[k][i][j] += self.biases[k]
+
+        return z
+
+    def backward(self, dz, X):
+        assert(dz.shape[0] == self.k) # make sure that we have the proper input depth.
+        out = (X.shape[1] + 2*self.padding -self.l) / self.stride + 1
+        assert(dz.shape[1] == out) # make sure that dz is of the right shape
+        assert(dz.shape[2] == out) # make sure that dz is of the right shape
+
+        dw = np.zeros((self.k, self.depth, self.l, self.l))
+        db = np.zeros((self.k, 1))
+
+        for k in range(0, self.k):
+            for k_d in range(0, self.depth):
+                for k_i in range(0, self.l):
+                    for k_j in range(0, self.l):
+                        for i in range(0, dz.shape[1]):
+                            for j in range(0, dz.shape[2]):
+                                if ((i * self.stride + k_i) >= 0 and
+                                   (i * self.stride + k_i) < X.shape[1] and
+                                   (j * self.stride + k_j) >= 0 and
+                                   (j * self.stride + k_j) < X.shape[2]):
+                                    dw[k][k_d][k_i][k_j] += dz[k][i][j] * X[k_d][i * self.stride + k_i][j * self.stride + k_j] 
+
+        for k in range(0, self.k):
+            for i in range(0, dz.shape[1]):
+                for j in range(0, dz.shape[2]):
+                    db += dz[k][i][j]
+
+        dz_prev = None
+        return {"dz": dz_prev, "dw": dw, "db": db}
+
+class FullyConnected():
+    def __init__(self, n_a, n_z):
+        self.n_a = n_a
+        self.n_z = n_z
+        self.b = np.zeros((n_z, 1))
+        self.W = np.random.randn(n_z, n_a) * 0.01
+
+    def forward(self, A):
+        return np.dot(self.W, A) + self.b
+
+    def backward(self, dz, X):
+        db = dz
+        dw = np.dot(dz, X.transpose())
+        dz = np.dot(self.W.transpose(), dz)
+        return {"dz": dz_prev, "dw": dw, "db": db}
+
+class ReLU():
+    def __init__(self):
+        pass
+
+    def forward(self, A):
+        return np.maximum(A, 0)
+
+    def backwards(self, dz, X):
+        return np.maximum(X, 0) * dz
+
+    def update_params(self, dw, db):
+        pass
+
+
+class Model():
+    def init(layers):
+        pass
+
 def main():
-    pass
+    conv = ConvLayer(k=1, l=3, depth=1, stride=1, padding=1)
+    X = np.random.rand(1, 3, 3)
+    print(X)
+    activation = conv.forward(X)
+    print("activation")
+    print(activation)
 
-if __name__ is "__main__":
-    main()
+    print("backward")
+    activation = conv.backward(X, activation)
+
+main()
